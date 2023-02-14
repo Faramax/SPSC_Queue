@@ -8,6 +8,14 @@ IF(MCU)
 ENDIF()
 
 IF(X86)
+   add_executable(autotest_spsc_q
+      autotest_spsc_queue.cpp)
+   find_package(Boost COMPONENTS system unit_test_framework REQUIRED)
+   target_link_libraries(autotest_spsc_q
+      spsc_queue
+      pthread
+      ${Boost_LIBRARIES})
+
    add_executable(mt_spsc_multhread_q
       cpupin.h
       multhread_q.cc
