@@ -24,6 +24,23 @@ SOFTWARE.
 
 #pragma once
 
+struct MsgHeader
+{
+   // size of this msg, including header itself
+   // auto set by lib, can be read by user
+   uint16_t size;
+   uint16_t msg_type;
+   // userdata can be used by caller, e.g. save timestamp or other stuff
+   // we assume that user_msg is 8 types alligned so there'll be 4 bytes padding anyway, otherwise we can choose to
+   // eliminate userdata
+   uint32_t userdata;
+};
+
+struct Block // size of 64, same as cache line
+{
+   alignas(64) MsgHeader header;
+};
+
 // alloc/push/front/pop are atomic operations, which is crash safe for shared-memory IPC
 template<uint32_t Bytes>
 class SPSCVarQueue
@@ -32,17 +49,8 @@ public:
   static constexpr uint32_t BLK_CNT = Bytes / 64;
   static_assert(BLK_CNT && !(BLK_CNT & (BLK_CNT - 1)), "BLK_CNT must be a power of 2");
 
-  struct MsgHeader
-  {
-    // size of this msg, including header itself
-    // auto set by lib, can be read by user
-    uint16_t size;
-    uint16_t msg_type;
-    // userdata can be used by caller, e.g. save timestamp or other stuff
-    // we assume that user_msg is 8 types alligned so there'll be 4 bytes padding anyway, otherwise we can choose to
-    // eliminate userdata
-    uint32_t userdata;
-  };
+  using MsgHeader = ::MsgHeader;
+  using Block     = ::Block;
 
   MsgHeader* alloc(uint16_t size) {
     size += sizeof(MsgHeader);
@@ -122,14 +130,9 @@ public:
   }
 
 private:
-  struct Block // size of 64, same as cache line
-  {
-    alignas(64) MsgHeader header;
-  } blk[BLK_CNT] = {};
-
+  Block                blk[BLK_CNT] = {};
   alignas(128) uint32_t write_idx = 0;
-  uint32_t read_idx_cach = 0; // used only by writing thread
-
+  uint32_t              read_idx_cach = 0; // used only by writing thread
   alignas(128) uint32_t read_idx = 0;
 };
 
